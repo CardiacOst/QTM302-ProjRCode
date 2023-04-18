@@ -1,0 +1,65 @@
+---
+title: "QTM_302_Project"
+author: "Shirley Yang"
+date: "2023-02-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+initial_data<- read.csv("/Users/indygu/Desktop/Data/Real_Estate_Sales_2001-2020_GL.csv")
+library(tidyr)
+library(tidyverse)
+library(plotly)
+initial_data
+```
+
+This is a dataset of real estate sales from 2001 to 2020 recording the assessed value and sale amount as well as corresponding information such as home id, locations, prices, residential types, home types and so on.
+
+We want to specifically focus on how does the house price in the market increase or decrease over the years based on their property types, residential types and locations. We are also interested whether the sales ratio(assessed value/sales amount) are affected by a specific variable.
+
+When browsing through the data, we realized that there are lots of information that we don't need to include in our dataset for analysis such as ids, specific street addresses and so on so we filtered out the "useless"part
+```{r}
+sales<-select(initial_data,"List.Year","Town","Assessed.Value","Sale.Amount","Sales.Ratio","Property.Type","Residential.Type" )
+```
+
+We first observe the general asset value change over the year in a general manner
+
+```{r}
+sales$List.Year <- as.factor(sales$List.Year)
+data5<- table(sales$List.Year)
+values_fn = list
+```
+
+```{r}
+ggplot(sales, aes(x= List.Year,y= Sale.Amount)) +ylim(0, 400000000) +xlab("Year") + ylab("Final Sales Price") +geom_boxplot() +stat_summary(fun.y = mean, geom = 'bar', fill = 'grey50') +stat_summary(fun.data = mean_sdl, fun.args = list(mult = 1), geom = 'errorbar', width = 0.2) 
+```
+
+```{r}
+# Calculate average Sales.Ratio for each year and Property.Type
+avg_sales_ratio <- sales %>%
+  group_by(List.Year, Property.Type) %>%
+  summarize(mean_sales_ratio = mean(Sales.Ratio))
+
+# Join average Sales.Ratio to original dataset
+sales_w_avg <- sales %>%
+  left_join(avg_sales_ratio, by = c("List.Year", "Property.Type"))
+
+# Calculate deviation from average Sales.Ratio
+sales_w_avg$deviation_from_avg <- abs(sales_w_avg$Sales.Ratio - sales_w_avg$mean_sales_ratio)
+
+# Create scatterplot with point size based on deviation from average Sales.Ratio
+ggplot(sales_w_avg, aes(x = List.Year, y = Sales.Ratio, color = Property.Type, size = deviation_from_avg)) +
+  geom_point() +
+  scale_size(range = c(1, 5)) +
+  labs(x = "Year", y = "Sales Ratio", color = "Property Type")
+
+```
+
+```{r}
+ggplot(sales, aes(x = List.Year, y = Sale.Amount, color = Property.Type)) +
+  geom_line() +
+  labs(x = "Year", y = "Sale Amount", color = "Property Type") +
+  ylim(0, max(sales$Sale.Amount)*0.05)
+
+```
